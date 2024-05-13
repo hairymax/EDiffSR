@@ -167,7 +167,7 @@ class DenoisingModel(BaseModel):
     #         out_dict["GT"] = self.state_0.detach()[0].float().cpu()
     #     return out_dict
 
-    def get_current_visuals(self, idx, need_GT=True):
+    def get_current_visuals(self, idx=0, need_GT=True):
         out_dict = OrderedDict()
         out_dict["Input"] = self.condition.detach()[idx].float().cpu()
         out_dict["Output"] = self.output.detach()[idx].float().cpu()

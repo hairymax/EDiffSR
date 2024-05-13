@@ -13,6 +13,8 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 # from IPython import embed
 
+from torchmetrics.image import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure
+
 import options as option
 from models import create_model
 
@@ -157,9 +159,7 @@ def main():
             total_iters = int(opt["train"]["niter"])
             total_epochs = int(math.ceil(total_iters / train_size))
             if opt["dist"]:
-                train_sampler = DistIterSampler(
-                    train_set, world_size, rank, dataset_ratio
-                )
+                train_sampler = DistIterSampler(train_set, world_size, rank, dataset_ratio)
                 total_epochs = int(
                     math.ceil(total_iters / (train_size * dataset_ratio))
                 )
@@ -180,7 +180,14 @@ def main():
         elif phase == "val":
             val_set = create_dataset(dataset_opt)
             
-            val_loader = create_dataloader(val_set, dataset_opt, opt, None)
+            #
+            if opt["dist"]:
+                val_sampler = DistIterSampler(val_set, world_size, rank, 1)
+            else:
+                val_sampler = None
+            #
+            
+            val_loader = create_dataloader(val_set, dataset_opt, opt, val_sampler)
             if rank <= 0:
                 logger.info(
                     "Number of val images in [{:s}]: {:d}".format(
@@ -227,6 +234,9 @@ def main():
     best_ssim_iter = 0
     error = mp.Value('b', False)
 
+    psnr = PeakSignalNoiseRatio(data_range=(0,1), reduction='sum', dim=(1,2,3)).to(rank)
+    ssim = StructuralSimilarityIndexMeasure(data_range=(0,1), reduction='sum').to(rank)
+    
     # -------------------------------------------------------------------------
     # -------------------------正式开始训练，前面都是废话---------------------------
     # -------------------------------------------------------------------------
@@ -234,7 +244,6 @@ def main():
         if opt["dist"]:
             train_sampler.set_epoch(epoch)
         for _, train_data in enumerate(train_loader):
-            # print(f'Iteration {current_step}/{total_iters}', end='\r')
             current_step += 1
 
             if current_step > total_iters:
@@ -269,13 +278,17 @@ def main():
                 if rank <= 0:
                     logger.info(message)
 
+            
             # validation, to produce ker_map_list(fake)
-            if current_step % opt["train"]["val_freq"] == 0 and rank <= 0:
-                avg_psnr = 0.0
-                avg_ssim = 0.0
-                idx = 0
+            if current_step % opt["train"]["val_freq"] == 0:
+                avg_psnr = torch.tensor(0.0).to(rank)
+                avg_ssim = torch.tensor(0.0).to(rank)
+                cnt = torch.tensor(0).to(rank) #if opt["dist"] else 0
+                
                 save_path = str(opt["path"]["experiments_root"]) + '/val_images/' + str(current_step)
-                util.mkdirs(save_path)
+                if rank <= 0:
+                    util.mkdirs(save_path)
+                
                 for _, val_data in enumerate(val_loader):
 
                     LQ, GT = val_data["LQ"], val_data["GT"]
@@ -286,66 +299,60 @@ def main():
                     model.feed_data(noisy_state, LQ, GT)
                     model.test(sde)
                     
-                    for i in range(val_data["LQ"].size(0)):
-                        visuals = model.get_current_visuals(i)
-
-                        output = util.tensor2img(visuals["Output"].squeeze())  # uint8
-                        gt_img = util.tensor2img(visuals["GT"].squeeze())  # uint8
-
-                        # save the validation results
-                        save_name = save_path + '/'+'{0:03d}'.format(idx) + '.png'
-                        util.save_img(output, save_name)
-
-                        # calculate PSNR
-                        avg_psnr += util.calculate_psnr(output, gt_img)
-                        avg_ssim += util.calculate_ssim(output, gt_img)
-                        idx += 1
+                    avg_psnr += psnr(model.output, model.state_0)
+                    avg_ssim += ssim(model.output, model.state_0)
                     
-                    # print(f'Iteration {current_step}/{total_iters}. ' 
-                    #       f'Validation. idx: {idx}/{len(val_loader.dataset)}', end='\r')
+                    cnt += val_data["LQ"].size(0)
                     
-                    
-                    # visuals = model.get_current_visuals()
+                    # visualize first image in the batch
+                    visuals = model.get_current_visuals(0)
+                    output = util.tensor2img(visuals["Output"].squeeze())  # uint8
 
-                    # output = util.tensor2img(visuals["Output"].squeeze())  # uint8
-                    # gt_img = util.tensor2img(visuals["GT"].squeeze())  # uint8
-
-                    # # save the validation results
+                    # save the validation results
+                    save_name = save_path + '/'+val_data['GT_path'][0].split('/')[-1]
                     # save_name = save_path + '/'+'{0:03d}'.format(idx) + '.png'
-                    # util.save_img(output, save_name)
+                    util.save_img(output, save_name)
 
                     # # calculate PSNR
                     # avg_psnr += util.calculate_psnr(output, gt_img)
+                    # avg_ssim += util.calculate_ssim(output, gt_img)
                     # idx += 1
-
-                avg_psnr = avg_psnr / idx
-                avg_ssim = avg_ssim / idx
-
-                if avg_psnr > best_psnr:
-                    best_psnr = avg_psnr
-                    best_iter = current_step
+                        
+                if opt["dist"]:
+                    dist.all_reduce(cnt)
+                    dist.all_reduce(avg_psnr)
+                    dist.all_reduce(avg_ssim)
                 
-                if avg_ssim > best_ssim:
-                    best_ssim = avg_ssim
-                    best_ssim_iter = current_step
+                if rank <= 0:    
+                    avg_psnr = avg_psnr / cnt
+                    avg_ssim = avg_ssim / cnt
+                    
+                    if avg_psnr > best_psnr:
+                        best_psnr = avg_psnr
+                        best_iter = current_step
+                    
+                    if avg_ssim > best_ssim:
+                        best_ssim = avg_ssim
+                        best_ssim_iter = current_step
 
-                # log
-                logger.info("# Validation # PSNR: {:.6f}, Best PSNR: {:.6f}| Iter: {} "
-                            "# SSIM: {:.4f}, Best SSIM: {:.4f}| Iter: {}"
-                            .format(avg_psnr, best_psnr, best_iter, avg_ssim, best_ssim, best_ssim_iter))
-                logger_val = logging.getLogger("val")  # validation logger
-                logger_val.info(
-                    "<epoch:{:3d}, iter:{:8,d}, psnr: {:.6f}, ssim: {:.4f}>".format(
-                        epoch, current_step, avg_psnr, avg_ssim
+                    # log
+                    logger.info("# Validation # PSNR: {:.6f}, Best PSNR: {:.6f} "
+                                "# SSIM: {:.4f}, Best SSIM: {:.4f}| Iter: {}"
+                                .format(avg_psnr, best_psnr, best_iter, 
+                                        avg_ssim, best_ssim, best_ssim_iter))
+                    logger_val = logging.getLogger("val")  # validation logger
+                    logger_val.info(
+                        "<epoch:{:3d}, iter:{:8,d}, psnr: {:.6f}, ssim: {:.4f}>".format(
+                            epoch, current_step, avg_psnr, avg_ssim
+                        )
                     )
-                )
-                print("<epoch:{:3d}, iter:{:8,d}, psnr: {:.6f}, ssim: {:.4f}>".format(
-                        epoch, current_step, avg_psnr, avg_ssim
-                    ))
-                # tensorboard logger
-                if opt["use_tb_logger"] and "debug" not in opt["name"]:
-                    tb_logger.add_scalar("psnr", avg_psnr, current_step)
-                    tb_logger.add_scalar("ssim", avg_ssim, current_step)
+                    print("<epoch:{:3d}, iter:{:8,d}, psnr: {:.6f}, ssim: {:.4f}>".format(
+                            epoch, current_step, avg_psnr, avg_ssim
+                        ))
+                    # tensorboard logger
+                    if opt["use_tb_logger"] and "debug" not in opt["name"]:
+                        tb_logger.add_scalar("psnr", avg_psnr, current_step)
+                        tb_logger.add_scalar("ssim", avg_ssim, current_step)
 
             if error.value:
                 sys.exit(0)

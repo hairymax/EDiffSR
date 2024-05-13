@@ -3,7 +3,7 @@ name: ediffsr
 use_tb_logger: true
 model: denoising
 distortion: sr
-gpu_ids: [0,1,2,3,4,5,6,7]
+gpu_ids: [0,1]
 
 sde:
   max_sigma: 50
@@ -29,7 +29,7 @@ datasets:
 
     use_shuffle: true
     n_workers: 4  # per GPU
-    batch_size: 64 # 
+    batch_size: 8 # 
     GT_size: 256
     LR_size: 64
     use_flip: true
@@ -38,10 +38,10 @@ datasets:
   val:
     name: Val_Dataset
     mode: LQGT
-    dataroot_GT: /trinity/home/m.aleshin/projects/superresolution/datasets/val_diff/hr
-    dataroot_LQ: /trinity/home/m.aleshin/projects/superresolution/datasets/val_diff/lr
+    dataroot_GT: /trinity/home/m.aleshin/projects/superresolution/datasets/val/hr
+    dataroot_LQ: /trinity/home/m.aleshin/projects/superresolution/datasets/val/lr
     n_workers: 4
-    batch_size: 64
+    batch_size: 8
 
 
 #### network structures
