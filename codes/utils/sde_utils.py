@@ -59,6 +59,7 @@ class SDE(abc.ABC):
         T = self.T if T < 0 else T
         x = xt.clone()
         for t in tqdm(reversed(range(1, T + 1))):
+        # for t in reversed(range(1, T + 1)):
             score = self.score_fn(x, t)
             x = self.reverse_sde_step(x, score, t)
 
@@ -230,7 +231,8 @@ class IRSDE(SDE):
     def reverse_sde(self, xt, T=-1, save_states=False, save_dir='sde_state', **kwargs):
         T = self.T if T < 0 else T
         x = xt.clone()
-        for t in tqdm(reversed(range(1, T + 1))):
+        # for t in tqdm(reversed(range(1, T + 1))):
+        for t in reversed(range(1, T + 1)):
             score = self.score_fn(x, t, **kwargs)
             x = self.reverse_sde_step(x, score, t)
 

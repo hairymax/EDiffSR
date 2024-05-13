@@ -159,14 +159,22 @@ class DenoisingModel(BaseModel):
     def get_current_log(self):
         return self.log_dict
 
-    def get_current_visuals(self, need_GT=True):
-        out_dict = OrderedDict()
-        out_dict["Input"] = self.condition.detach()[0].float().cpu()
-        out_dict["Output"] = self.output.detach()[0].float().cpu()
-        if need_GT:
-            out_dict["GT"] = self.state_0.detach()[0].float().cpu()
-        return out_dict
+    # def get_current_visuals(self, need_GT=True):
+    #     out_dict = OrderedDict()
+    #     out_dict["Input"] = self.condition.detach()[0].float().cpu()
+    #     out_dict["Output"] = self.output.detach()[0].float().cpu()
+    #     if need_GT:
+    #         out_dict["GT"] = self.state_0.detach()[0].float().cpu()
+    #     return out_dict
 
+    def get_current_visuals(self, idx, need_GT=True):
+        out_dict = OrderedDict()
+        out_dict["Input"] = self.condition.detach()[idx].float().cpu()
+        out_dict["Output"] = self.output.detach()[idx].float().cpu()
+        if need_GT:
+            out_dict["GT"] = self.state_0.detach()[idx].float().cpu()
+        return out_dict
+    
     def print_network(self):
         s, n = self.get_network_description(self.model)
         if isinstance(self.model, nn.DataParallel) or isinstance(

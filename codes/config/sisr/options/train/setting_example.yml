@@ -1,9 +1,9 @@
 #### general settings
 name: ediffsr
-use_tb_logger: true
+use_tb_logger: false
 model: denoising
 distortion: sr
-gpu_ids: [0,1,2,3,4,5,6,7]
+gpu_ids: [0]
 
 sde:
   max_sigma: 50
@@ -25,11 +25,14 @@ datasets:
     optimizer: AdamW # Adam, AdamW, Lion
     name: Train_Dataset
     mode: LQGT
-    dataroot_GT: /trinity/home/m.aleshin/projects/superresolution/datasets/train
+    dataroot_GT: /home/amax/Desktop/16T/disk3/XY-SPACE/SISR/Dataset/train/GT
+    dataroot_LQ: /home/amax/Desktop/16T/disk3/XY-SPACE/SISR/Dataset/train/LR
+#    dataroot_GT: D:/SISR/Dataset/train/GT
+#    dataroot_LQ: D:/SISR/Dataset/train/LR
 
     use_shuffle: true
     n_workers: 4  # per GPU
-    batch_size: 64 # 
+    batch_size: 2
     GT_size: 256
     LR_size: 64
     use_flip: true
@@ -38,10 +41,10 @@ datasets:
   val:
     name: Val_Dataset
     mode: LQGT
-    dataroot_GT: /trinity/home/m.aleshin/projects/superresolution/datasets/val/hr
-    dataroot_LQ: /trinity/home/m.aleshin/projects/superresolution/datasets/val/lr
-    n_workers: 4
-    batch_size: 64
+    dataroot_GT: /home/amax/Desktop/16T/disk3/XY-SPACE/SISR/baseline/AID-tiny/GT
+    dataroot_LQ: /home/amax/Desktop/16T/disk3/XY-SPACE/SISR/baseline/AID-tiny/LR
+#    dataroot_GT: D:/SISR/Dataset/train/GT
+#    dataroot_LQ: D:/SISR/Dataset/train/LR
 
 
 #### network structures
@@ -68,9 +71,9 @@ train:
   lr_scheme: TrueCosineAnnealingLR
   beta1: 0.9
   beta2: 0.99
-  niter: 200000 # 700000
+  niter: 700000
   warmup_iter: -1  # no warm up
-  lr_steps: [50000, 75000, 100000] # [200000, 300000, 400000]
+  lr_steps: [200000, 300000, 400000]
   lr_gamma: 0.5
   eta_min: !!float 1e-7
 
@@ -80,9 +83,9 @@ train:
   weight: 1.0
 
   manual_seed: 0
-  val_freq: !!float 2.5e3
+  val_freq: !!float 5e3
 
 #### logger
 logger:
   print_freq: 100
-  save_checkpoint_freq: !!float 2.5e3
+  save_checkpoint_freq: !!float 5e3

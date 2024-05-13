@@ -28,9 +28,8 @@ import matplotlib.pyplot as plt
 def init_dist(backend="nccl", **kwargs):
     """ initialization for distributed training"""
     # if mp.get_start_method(allow_none=True) is None:
-    if (
-        mp.get_start_method(allow_none=True) != "spawn"
-    ):  # Return the name of start method used for starting processes
+    if mp.get_start_method(allow_none=True) != "spawn":  
+        # Return the name of start method used for starting processes
         mp.set_start_method("spawn", force=True)  ##'spawn' is the default on Windows
     rank = int(os.environ["RANK"])  # system env process ranks
     num_gpus = torch.cuda.device_count()  # Returns the number of GPUs available
@@ -43,7 +42,7 @@ def init_dist(backend="nccl", **kwargs):
 def main():
     #### setup options of three networks
     parser = argparse.ArgumentParser()
-    parser.add_argument("-opt", type=str, default="D:/EDiffSR/codes/config/sisr/options/setting.yml")
+    parser.add_argument("-opt", type=str, default="/trinity/home/m.aleshin/projects/superresolution/EDiffSR/codes/config/sisr/options/train/setting.yml")
     parser.add_argument(
         "--launcher", choices=["none", "pytorch"], default="none", help="job launcher"  # none means disabled distributed training
     )
@@ -150,7 +149,7 @@ def main():
 
 
     #### create train and val dataloader
-    dataset_ratio = 200  # enlarge the size of each epoch
+    dataset_ratio = 10  # enlarge the size of each epoch
     for phase, dataset_opt in opt["datasets"].items():
         if phase == "train":
             train_set = create_dataset(dataset_opt)
@@ -180,6 +179,7 @@ def main():
                 )
         elif phase == "val":
             val_set = create_dataset(dataset_opt)
+            
             val_loader = create_dataloader(val_set, dataset_opt, opt, None)
             if rank <= 0:
                 logger.info(
@@ -223,6 +223,8 @@ def main():
 
     best_psnr = 0.0
     best_iter = 0
+    best_ssim = 0.0
+    best_ssim_iter = 0
     error = mp.Value('b', False)
 
     # -------------------------------------------------------------------------
@@ -232,6 +234,7 @@ def main():
         if opt["dist"]:
             train_sampler.set_epoch(epoch)
         for _, train_data in enumerate(train_loader):
+            # print(f'Iteration {current_step}/{total_iters}', end='\r')
             current_step += 1
 
             if current_step > total_iters:
@@ -245,7 +248,7 @@ def main():
             timesteps, states = sde.generate_random_states(x0=GT, mu=LQ)  # t=batchsize，states [b 3 128 128]
 
             model.feed_data(states, LQ, GT)  # xt, mu, x0, 将加了噪声的LR图xt，LR以及GT输入改进的UNet进行去噪
-
+            
             model.optimize_parameters(current_step, timesteps, sde)  # 优化UNet
 
             model.update_learning_rate(
@@ -269,7 +272,10 @@ def main():
             # validation, to produce ker_map_list(fake)
             if current_step % opt["train"]["val_freq"] == 0 and rank <= 0:
                 avg_psnr = 0.0
+                avg_ssim = 0.0
                 idx = 0
+                save_path = str(opt["path"]["experiments_root"]) + '/val_images/' + str(current_step)
+                util.mkdirs(save_path)
                 for _, val_data in enumerate(val_loader):
 
                     LQ, GT = val_data["LQ"], val_data["GT"]
@@ -279,41 +285,67 @@ def main():
                     # valid Predictor
                     model.feed_data(noisy_state, LQ, GT)
                     model.test(sde)
-                    visuals = model.get_current_visuals()
+                    
+                    for i in range(val_data["LQ"].size(0)):
+                        visuals = model.get_current_visuals(i)
 
-                    output = util.tensor2img(visuals["Output"].squeeze())  # uint8
-                    gt_img = util.tensor2img(visuals["GT"].squeeze())  # uint8
+                        output = util.tensor2img(visuals["Output"].squeeze())  # uint8
+                        gt_img = util.tensor2img(visuals["GT"].squeeze())  # uint8
 
-                    # save the validation results
-                    save_path = str(opt["path"]["experiments_root"]) + '/val_images/' + str(current_step)
-                    util.mkdirs(save_path)
-                    save_name = save_path + '/'+'{0:03d}'.format(idx) + '.png'
-                    util.save_img(output, save_name)
+                        # save the validation results
+                        save_name = save_path + '/'+'{0:03d}'.format(idx) + '.png'
+                        util.save_img(output, save_name)
 
-                    # calculate PSNR
-                    avg_psnr += util.calculate_psnr(output, gt_img)
-                    idx += 1
+                        # calculate PSNR
+                        avg_psnr += util.calculate_psnr(output, gt_img)
+                        avg_ssim += util.calculate_ssim(output, gt_img)
+                        idx += 1
+                    
+                    # print(f'Iteration {current_step}/{total_iters}. ' 
+                    #       f'Validation. idx: {idx}/{len(val_loader.dataset)}', end='\r')
+                    
+                    
+                    # visuals = model.get_current_visuals()
+
+                    # output = util.tensor2img(visuals["Output"].squeeze())  # uint8
+                    # gt_img = util.tensor2img(visuals["GT"].squeeze())  # uint8
+
+                    # # save the validation results
+                    # save_name = save_path + '/'+'{0:03d}'.format(idx) + '.png'
+                    # util.save_img(output, save_name)
+
+                    # # calculate PSNR
+                    # avg_psnr += util.calculate_psnr(output, gt_img)
+                    # idx += 1
 
                 avg_psnr = avg_psnr / idx
+                avg_ssim = avg_ssim / idx
 
                 if avg_psnr > best_psnr:
                     best_psnr = avg_psnr
                     best_iter = current_step
+                
+                if avg_ssim > best_ssim:
+                    best_ssim = avg_ssim
+                    best_ssim_iter = current_step
 
                 # log
-                logger.info("# Validation # PSNR: {:.6f}, Best PSNR: {:.6f}| Iter: {}".format(avg_psnr, best_psnr, best_iter))
+                logger.info("# Validation # PSNR: {:.6f}, Best PSNR: {:.6f}| Iter: {} "
+                            "# SSIM: {:.4f}, Best SSIM: {:.4f}| Iter: {}"
+                            .format(avg_psnr, best_psnr, best_iter, avg_ssim, best_ssim, best_ssim_iter))
                 logger_val = logging.getLogger("val")  # validation logger
                 logger_val.info(
-                    "<epoch:{:3d}, iter:{:8,d}, psnr: {:.6f}".format(
-                        epoch, current_step, avg_psnr
+                    "<epoch:{:3d}, iter:{:8,d}, psnr: {:.6f}, ssim: {:.4f}>".format(
+                        epoch, current_step, avg_psnr, avg_ssim
                     )
                 )
-                print("<epoch:{:3d}, iter:{:8,d}, psnr: {:.6f}".format(
-                        epoch, current_step, avg_psnr
+                print("<epoch:{:3d}, iter:{:8,d}, psnr: {:.6f}, ssim: {:.4f}>".format(
+                        epoch, current_step, avg_psnr, avg_ssim
                     ))
                 # tensorboard logger
                 if opt["use_tb_logger"] and "debug" not in opt["name"]:
                     tb_logger.add_scalar("psnr", avg_psnr, current_step)
+                    tb_logger.add_scalar("ssim", avg_ssim, current_step)
 
             if error.value:
                 sys.exit(0)
