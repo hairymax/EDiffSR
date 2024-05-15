@@ -336,8 +336,8 @@ def main():
                         best_ssim_iter = current_step
 
                     # log
-                    logger.info("# Validation # PSNR: {:.6f}, Best PSNR: {:.6f} "
-                                "# SSIM: {:.4f}, Best SSIM: {:.4f}| Iter: {}"
+                    logger.info("# Val. # PSNR: {:.4f}, Best {:.4f} on iter {}\n"
+                                "       # SSIM: {:.4f}, Best {:.4f} on iter: {}"
                                 .format(avg_psnr, best_psnr, best_iter, 
                                         avg_ssim, best_ssim, best_ssim_iter))
                     logger_val = logging.getLogger("val")  # validation logger

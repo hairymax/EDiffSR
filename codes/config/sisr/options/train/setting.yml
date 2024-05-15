@@ -25,7 +25,7 @@ datasets:
     optimizer: AdamW # Adam, AdamW, Lion
     name: Train_Dataset
     mode: LQGT
-    dataroot_GT: /trinity/home/m.aleshin/projects/superresolution/datasets/train
+    dataroot_GT: /trinity/home/m.aleshin/projects/superresolution/datasets/train_diff
 
     use_shuffle: true
     n_workers: 4  # per GPU
@@ -55,11 +55,11 @@ network_G:
 
 #### path
 path:
-  #pretrain_model_G: /mnt/disk3/XY-SPACE/SISR/image-restoration-sde-main/experiments/sisr/10000_G.pth
-  pretrain_model_G: ~
+  pretrain_model_G: /trinity/home/m.aleshin/projects/superresolution/EDiffSR/experiments/sisr/ediffsr/models/25000_G.pth
+  # pretrain_model_G: ~
   strict_load: true
-  #resume_state: /home/amax/Desktop/16T/disk3/XY-SPACE/SISR/image-restoration-sde-main/codes/config/sisr/log/refusion/training_state/360000.state
-  resume_state: ~
+  resume_state: /trinity/home/m.aleshin/projects/superresolution/EDiffSR/experiments/sisr/ediffsr/training_state/25000.state
+  # resume_state: ~
 
 #### training settings: learning rate scheme, loss
 train:
