@@ -1,3 +1,5 @@
 experiments/sisr
+results/sisr
+codes/config/sisr/sde_state
 codes/config/sisr/log
 !experiments/sisr/ediffsr/180000_G.pth

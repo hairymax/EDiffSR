@@ -1,0 +1,47 @@
+name: ediffsr85000
+suffix: ~  # add suffix to saved images
+model: denoising
+distortion: sr
+gpu_ids: [0,1,2,3,4,5,6,7]
+
+sde:
+  max_sigma: 50
+  T: 100
+  schedule: cosine # linear, cosine
+  eps: 0.005
+  
+degradation:
+  # for denoising
+  sigma: 25
+  noise_type: G # Gaussian noise: G
+
+  # for super-resolution
+  scale: 4
+
+#### path
+path:
+  pretrain_model_G: /trinity/home/m.aleshin/projects/superresolution/EDiffSR/experiments/sisr/ediffsr/models/85000_G.pth
+  # results_root: /trinity/home/m.aleshin/projects/superresolution/EDiffSR/experiments/sisr/ediffsr/results/
+  
+datasets:
+  test:
+    name: Test Dataset
+    mode: LQGT
+    dataroot_GT: /trinity/home/m.aleshin/projects/superresolution/datasets/test/hr
+    
+    n_workers: 4  # per GPU
+    batch_size: 64 # 
+    GT_size: 256
+    LR_size: 64
+  
+ 
+#### network structures
+network_G:
+  which_model_G: ConditionalNAFNet
+  setting:
+    width: 64
+    enc_blk_nums: [14, 1, 1, 1]
+    middle_blk_num: 1
+    dec_blk_nums: [1, 1, 1, 1]
+
+
