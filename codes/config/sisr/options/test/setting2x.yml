@@ -1,8 +1,9 @@
-name: ediffsr85000
+name: ediffsr2x240000
 suffix: ~  # add suffix to saved images
 model: denoising
 distortion: sr
-gpu_ids: [0,1,2,3,4,5,6,7]
+gpu_ids: [0,1]
+# gpu_ids: [0,1,2,3]
 
 sde:
   max_sigma: 50
@@ -16,23 +17,23 @@ degradation:
   noise_type: G # Gaussian noise: G
 
   # for super-resolution
-  scale: 4
+  scale: 2
 
 #### path
 path:
-  pretrain_model_G: /trinity/home/m.aleshin/projects/superresolution/EDiffSR/experiments/sisr/ediffsr/models/85000_G.pth
+  pretrain_model_G: /trinity/home/m.aleshin/projects/superresolution/EDiffSR/experiments/sisr/ediffsr2x/models/240000_G.pth
   # results_root: /trinity/home/m.aleshin/projects/superresolution/EDiffSR/experiments/sisr/ediffsr/results/
   
 datasets:
   test:
     name: Test Dataset
     mode: LQGT
-    dataroot_GT: /trinity/home/m.aleshin/projects/superresolution/datasets/test/hr
+    dataroot_GT: /trinity/home/m.aleshin/projects/superresolution/datasets/all/test/hr1.5m
     
-    n_workers: 4  # per GPU
-    batch_size: 64 # 
+    n_workers: 6  # per GPU
+    batch_size: 128 # 
     GT_size: 256
-    LR_size: 64
+    LR_size: 128
   
  
 #### network structures

@@ -52,7 +52,8 @@ class LQGTDataset(data.Dataset):
             ), "GT and LR datasets have different number of images - {}, {}.".format(
                 len(self.LR_paths), len(self.GT_paths)
             )
-        self.random_scale_list = [1]
+        # self.random_scale_list = [1]
+        self.scale_list = opt['scale_list']
 
     def _init_lmdb(self):
         # https://github.com/chainer/chainermn/issues/129
@@ -106,16 +107,37 @@ class LQGTDataset(data.Dataset):
         else:  # down-sampling on-the-fly
             # randomly scale during training
             if self.opt["phase"] == "train":
-                random_scale = random.choice(self.random_scale_list)
-                H_s, W_s, _ = img_GT.shape
+                # random_scale = random.choice(self.random_scale_list)
+                # H_s, W_s, _ = img_GT.shape
+                
+                # def _mod(n, random_scale, scale, thres):
+                #     rlt = int(n * random_scale)
+                #     rlt = (rlt // scale) * scale
+                #     return thres if rlt < thres else rlt
 
+                # H_s = _mod(H_s, random_scale, scale, GT_size)
+                # W_s = _mod(W_s, random_scale, scale, GT_size)
+                
+                if len(self.scale_list) > 0:
+                    random_scale = random.choice(self.scale_list)
+                else: # not even random, but a fixed scale
+                    random_scale = self.opt['scales'][os.path.dirname(GT_path).split('/')[-1]]
+                H_s, W_s, _ = img_GT.shape
+                
                 def _mod(n, random_scale, scale, thres):
                     rlt = int(n * random_scale)
                     rlt = (rlt // scale) * scale
                     return thres if rlt < thres else rlt
 
-                H_s = _mod(H_s, random_scale, scale, GT_size)
-                W_s = _mod(W_s, random_scale, scale, GT_size)
+                if H_s < W_s:
+                    rel = W_s / H_s
+                    H_s = _mod(H_s, random_scale, scale, GT_size)
+                    W_s = (int(H_s * rel) // scale) * scale
+                else:
+                    rel = H_s / W_s
+                    W_s = _mod(W_s, random_scale, scale, GT_size)
+                    H_s = (int(W_s * rel) // scale) * scale
+
                 img_GT = cv2.resize(
                     np.copy(img_GT), (W_s, H_s), interpolation=cv2.INTER_LINEAR
                 )
