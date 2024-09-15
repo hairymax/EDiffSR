@@ -11,7 +11,7 @@
 #SBATCH --mail-type=end          # send email when job ends
 #SBATCH --mail-type=fail         # send email when job fails
 #SBATCH --mail-user=m.aleshin@skoltech.ru
-#SBATCH --output=/trinity/home/m.aleshin/projects/superresolution/EDiffSR/experiments/sisr/slurm_logs/ediffsr_%x_%j.txt   
+#SBATCH --output=/trinity/home/m.aleshin/projects/superresolution/EDiffSR/experiments/sisr/slurm_logs/%x_%j.txt   
 
 source /beegfs/home/m.aleshin/.bashrc
 conda activate torch

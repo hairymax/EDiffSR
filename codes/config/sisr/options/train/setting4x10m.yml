@@ -62,10 +62,10 @@ network_G:
 
 #### path
 path:
-  pretrain_model_G: /trinity/home/m.aleshin/projects/superresolution/EDiffSR/experiments/sisr/ediffsr4x/models/220000_G.pth
+  pretrain_model_G: /trinity/home/m.aleshin/projects/superresolution/EDiffSR/experiments/sisr/ediffsr4x/models/255000_G.pth
   # pretrain_model_G: ~
   strict_load: true
-  resume_state: /trinity/home/m.aleshin/projects/superresolution/EDiffSR/experiments/sisr/ediffsr4x/training_state/220000.state
+  resume_state: ~
 
 #### training settings: learning rate scheme, loss
 train:
