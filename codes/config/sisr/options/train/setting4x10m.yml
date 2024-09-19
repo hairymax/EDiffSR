@@ -62,10 +62,10 @@ network_G:
 
 #### path
 path:
-  pretrain_model_G: /trinity/home/m.aleshin/projects/superresolution/EDiffSR/experiments/sisr/ediffsr4x/models/255000_G.pth
+  pretrain_model_G: /trinity/home/m.aleshin/projects/superresolution/EDiffSR/experiments/sisr/ediffsr4x10m/models/100000_G.pth
   # pretrain_model_G: ~
   strict_load: true
-  resume_state: ~
+  resume_state: /trinity/home/m.aleshin/projects/superresolution/EDiffSR/experiments/sisr/ediffsr4x10m/training_state/100000.state
 
 #### training settings: learning rate scheme, loss
 train:
@@ -74,9 +74,9 @@ train:
   lr_scheme: TrueCosineAnnealingLR
   beta1: 0.9
   beta2: 0.99
-  niter: 100000 # 700000
+  niter: 400000 # 700000
   warmup_iter: -1  # no warm up
-  lr_steps: [30000, 50000, 70000] # [200000, 300000, 400000]
+  lr_steps: [100000, 175000, 250000] # [200000, 300000, 400000]
   lr_gamma: 0.5
   eta_min: !!float 1e-7
 
