@@ -1,4 +1,10 @@
 # EDiffSR (IEEE TGRS 2024)
+
+В данном форке валидация переписана в параллельном режиме, в оригинале она производилась на 1 GPU.
+Добавлен расчёт метрик LPIPS и FID.  
+
+Ниже README оригинального репозитория
+
 ### 📖[**Paper**](https://ieeexplore.ieee.org/document/10353979) | 🖼️[**PDF**](./img/EDiffSR.pdf)
 
 PyTorch codes for "[EDiffSR: An Efficient Diffusion Probabilistic Model for Remote Sensing Image Super-Resolution](https://ieeexplore.ieee.org/document/10353979)", **IEEE Transactions on Geoscience and Remote Sensing**, 2024.
